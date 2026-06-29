@@ -5,12 +5,14 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 
 public class CharaAnm {
+	private boolean bigEndian;
 	private float[][] coordinates;
 	private int[][] positions;
 	private RandomAccessFile anm;
 	
-	public CharaAnm(File f) throws IOException {
+	public CharaAnm(File f, boolean bigEndian) throws IOException {
 		anm = new RandomAccessFile(f, "rw");
+		this.bigEndian = bigEndian;
 	}
 	
 	public boolean isValid() throws IOException {
@@ -20,10 +22,10 @@ public class CharaAnm {
 		if (headerVal == 97) {
 			anm.seek(4);
 			anm.read(offsetBytes);
-			int offsetAtPos4 = ValueHandler.getVal(offsetBytes, false);
+			int offsetAtPos4 = ValueHandler.getVal(offsetBytes, bigEndian);
 			anm.seek(8);
 			anm.read(offsetBytes);
-			int offsetAtPos8 = ValueHandler.getVal(offsetBytes, false);
+			int offsetAtPos8 = ValueHandler.getVal(offsetBytes, bigEndian);
 			if (offsetAtPos4 == 0 && offsetAtPos8 == 0) return true;
 		}
 		return false;
@@ -35,11 +37,11 @@ public class CharaAnm {
 		for (int boneCnt = 0; boneCnt < CharaPak.MAX_NUM_BONES; boneCnt++) {
 			anm.seek(6 + boneCnt * 2);
 			anm.read(offsetBytes);
-			int bonePos = ValueHandler.getVal(offsetBytes, false) * 4;
+			int bonePos = ValueHandler.getVal(offsetBytes, bigEndian) * 4;
 			if (bonePos == 0) continue;
 			anm.seek(bonePos);
 			anm.read(offsetBytes);
-			int movementType = ValueHandler.getVal(offsetBytes, false);
+			int movementType = ValueHandler.getVal(offsetBytes, bigEndian);
 			if (movementType == 0) {
 				transBoneIds[transBoneCnt] = boneCnt;
 				transBoneCnt++;
@@ -62,7 +64,7 @@ public class CharaAnm {
 					newVal += srcBoneCoords[coordCnt];
 					output += "-> Writing new " + CharaPak.COORD_NAMES[coordCnt] + " value at pos. " + positions[posCnt][coordCnt];
 					output += String.format(" (%6s: %.6f%7s: %.6f)\n", "BEFORE", coordinates[posCnt][coordCnt], ", AFTER", newVal);
-					anm.write(ValueHandler.getValBytes(newVal, false));
+					anm.write(ValueHandler.getValBytes(newVal, bigEndian));
 				}
 			}
 		}
@@ -75,14 +77,14 @@ public class CharaAnm {
 		for (int boneCnt = 0; boneCnt < CharaPak.MAX_NUM_BONES; boneCnt++) {
 			anm.seek(6 + boneCnt * 2);
 			anm.read(offsetBytes);
-			int bonePos = ValueHandler.getVal(offsetBytes, false) * 4;
+			int bonePos = ValueHandler.getVal(offsetBytes, bigEndian) * 4;
 			if (bonePos == 0) continue;
 			anm.seek(bonePos);
 			anm.read(offsetBytes);
-			int movementType = ValueHandler.getVal(offsetBytes, false);
+			int movementType = ValueHandler.getVal(offsetBytes, bigEndian);
 			if (movementType == 0) {
 				anm.read(offsetBytes);
-				int numKeyFrames = ValueHandler.getVal(offsetBytes, false);
+				int numKeyFrames = ValueHandler.getVal(offsetBytes, bigEndian);
 				positions = new int[numKeyFrames][3];
 				anm.seek(bonePos);
 				int boneSize = 4 + 24 * numKeyFrames;
@@ -95,7 +97,7 @@ public class CharaAnm {
 						for (int posCnt = 0; posCnt < 3; posCnt++) {
 							int addr = 4 + 24 * keyFrameCnt + 4 * posCnt;
 							System.arraycopy(boneBytes, addr, positionBytes, 0, positionBytes.length);
-							coordinates[keyFrameCnt][posCnt] = ValueHandler.getValFloat(positionBytes, false);
+							coordinates[keyFrameCnt][posCnt] = ValueHandler.getValFloat(positionBytes, bigEndian);
 							positions[keyFrameCnt][posCnt] = bonePos + addr;
 						}
 					}
