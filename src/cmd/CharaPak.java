@@ -41,14 +41,18 @@ public class CharaPak {
 		return ValueHandler.getValFloat(valBytes, bigEndian);
 	}
 	public float[] getPositions(int boneId) throws IOException {
+		int initBonePos = 0;
 		float[] positions = new float[3];
 		pak.seek(12);
 		pak.read(valBytes);
 		int mdlAddr = ValueHandler.getVal(valBytes, bigEndian);
-		pak.seek(mdlAddr + 108);
-		pak.read(valBytes);
-		int initBonePos = mdlAddr + ValueHandler.getVal(valBytes, bigEndian);
-		pak.seek(initBonePos);
+		if (!isNeo) {
+			pak.seek(mdlAddr + 108);
+			pak.read(valBytes);
+			initBonePos = mdlAddr + ValueHandler.getVal(valBytes, bigEndian);
+		}
+		else initBonePos = mdlAddr + 80;
+ 		pak.seek(initBonePos);
 		for (int boneCnt = 0; boneCnt < MAX_NUM_BONES; boneCnt++) {
 			pak.read(valBytes);
 			int boneSize = ValueHandler.getVal(valBytes, bigEndian);
