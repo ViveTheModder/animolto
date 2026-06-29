@@ -216,10 +216,10 @@ public class Program {
 					String errMsg = "";
 					for (int lblCnt = 0; lblCnt < lblTxt.length; lblCnt++) {
 						boolean isFolder = lblTxt[lblCnt].contains("Directory");
+						//Check for manually entered paths and turn them to directories/files
+						if (!fields[lblCnt].getBackground().equals(Color.LIGHT_GRAY))
+							dirs[lblCnt] = new File(fields[lblCnt].getText());
 						if (dirs[lblCnt] != null) {
-							//Check for manually entered paths and turn them to directories/files
-							if (fields[lblCnt].getBackground().equals(Color.LIGHT_GRAY))
-								dirs[lblCnt] = new File(fields[lblCnt].getText());
 							//Validate paths regardless of how they were entered
 							if (isFolder) {
 								if (!dirs[lblCnt].isDirectory()) {
