@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.lang.Runnable;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
@@ -24,9 +26,11 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import cmd.CharaAnm;
+import cmd.CharaCma;
 import cmd.CharaPak;
 import cmd.Main;
 
@@ -34,7 +38,7 @@ public class Program {
 	private static File currDir;
 	private static final String HTML_START = "<html><div style='font-size: 14px; font-style: italic;'>";
 	private static final String HTML_END = "</div></html>";
-	private static final String WINDOW_TITLE = "ANIMOLTO v2.0";
+	private static final String WINDOW_TITLE = "ANIMOLTO v3.0";
 	
 	public static void launch(String[] boneNames) {
 		Toolkit tk = Toolkit.getDefaultToolkit();
@@ -125,11 +129,11 @@ public class Program {
 		JOptionPane.showMessageDialog(null, errMsg, WINDOW_TITLE, JOptionPane.ERROR_MESSAGE);
 	}
 	private static void run(String[] boneNames, Toolkit tk) {
-		String[] lblTxt = { "Target Costume PAK", "Source Costume PAK", "Source ANM Directory" };
+		String[] lblTxt = { "Target Costume PAK", "Source Costume PAK", "Src. ANM/CMA Folder" };
 		String[] lblTooltips = {
 			"A costume file from the character subject to the ANM scaling.",
 			"A costume file from the character whose animations will be resized.",
-			"A folder containing the animations that will be resized."
+			"A folder containing the animations or cameras that will be resized."
 		};
 		final File[] dirs = new File[lblTxt.length];
 		//Set components
@@ -163,6 +167,31 @@ public class Program {
 		for (int lblCnt = 0; lblCnt < lblTxt.length; lblCnt++) {
 			final int index = lblCnt;
 			fields[lblCnt] = getTextField(fieldSize, lblTxt[lblCnt]);
+			fields[lblCnt].setTransferHandler(new TransferHandler() {
+				@Override
+				public boolean canImport(TransferHandler.TransferSupport ts) {
+					return ts.isDataFlavorSupported(DataFlavor.javaFileListFlavor);
+				}
+				@Override
+				@SuppressWarnings("unchecked")
+				public boolean importData(TransferHandler.TransferSupport ts) {
+					if (!canImport(ts)) return false;
+					try {
+						List<File> files = (List<File>) ts.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+						File dir = files.get(0);
+						boolean containsFile = dir.isFile() && dir.getName().toLowerCase().endsWith(".pak") && index < 2;
+						boolean containsFolder = dir.isDirectory() && index == 2;
+						if (containsFile || containsFolder) {
+							fields[index].setForeground(Color.BLACK);
+							fields[index].setText(dir.getAbsolutePath());
+						}
+					}
+					catch (Exception e) {
+						return false;
+					}
+					return true;
+				}
+			});
 			labels[lblCnt] = new JLabel(lblTxt[lblCnt]);
 			labels[lblCnt].setAlignmentX(JLabel.RIGHT_ALIGNMENT);
 			labels[lblCnt].setForeground(lblColors[lblCnt]);
@@ -184,7 +213,7 @@ public class Program {
 			openBtns[lblCnt].addActionListener(new ActionListener() {
 				@Override
 				public void actionPerformed(ActionEvent ae) {
-					boolean isFolder = lblTxt[index].contains("Directory");
+					boolean isFolder = lblTxt[index].contains("Folder");
 					dirs[index] = getFilefromChooser(lblTxt[index], tk, isFolder);
 					if (dirs[index] != null) {
 						fields[index].setBackground(Color.LIGHT_GRAY);
@@ -215,7 +244,7 @@ public class Program {
 				try {
 					String errMsg = "";
 					for (int lblCnt = 0; lblCnt < lblTxt.length; lblCnt++) {
-						boolean isFolder = lblTxt[lblCnt].contains("Directory");
+						boolean isFolder = lblTxt[lblCnt].contains("Folder");
 						//Check for manually entered paths and turn them to directories/files
 						if (!fields[lblCnt].getBackground().equals(Color.LIGHT_GRAY))
 							dirs[lblCnt] = new File(fields[lblCnt].getText());
@@ -248,10 +277,11 @@ public class Program {
 						long start = System.currentTimeMillis();
 						CharaPak[] paks = { new CharaPak(dirs[0]), new CharaPak(dirs[1]) }; 
 						boolean bigEndian = paks[1].isInBigEndian();
-						File[] anmFiles = dirs[2].listFiles(new FilenameFilter() {
+						File[] srcFiles = dirs[2].listFiles(new FilenameFilter() {
 							@Override
 							public boolean accept(File dir, String name) {
-								if (name.toLowerCase().endsWith(".anm")) {
+								String nameLower = name.toLowerCase();
+								if (nameLower.endsWith(".anm") && !nameLower.contains("enemy")) {
 									try {
 										File anmFile = new File(dir.getAbsolutePath() + File.separator + name);
 										CharaAnm anm = new CharaAnm(anmFile, bigEndian);
@@ -261,40 +291,57 @@ public class Program {
 										errorDialog(e, tk);
 									}	
 								}
+								else if (nameLower.endsWith(".cma")) {
+									try {
+										File cmaFile = new File(dir.getAbsolutePath() + File.separator + name);
+										CharaCma cma = new CharaCma(cmaFile, bigEndian);
+										return cma.isValid();
+									} 
+									catch (IOException e) {
+										errorDialog(e, tk);
+									}	
+								}
 								return false;
 							}
 						});
-						if (anmFiles == null) {
-							String msg = "Directory is invalid, so no ANM files were found!";
+						if (srcFiles == null) {
+							String msg = "Directory is invalid, so no asset files were found!";
 							errorDialog(msg, tk);
 							return;
 						}
-						if (anmFiles.length == 0) {
-							String msg = "No ANM files were found, so there is nothing to adjust.";
+						if (srcFiles.length == 0) {
+							String msg = "No asset files were found, so there is nothing to adjust.";
 							tk.beep();
 							JOptionPane.showMessageDialog(null, msg, WINDOW_TITLE, JOptionPane.WARNING_MESSAGE);
 							return;
 						}
-						CharaAnm[] anms = new CharaAnm[anmFiles.length];
 						String logDateTime = new SimpleDateFormat(Main.DT_FORMAT).format(new Date());
 						new File("./log/").mkdir();
 						File log = new File("./log/animolto-" + logDateTime + ".log");
 						FileWriter fw = new FileWriter(log);
 						String out = "";
 						float coefficient = paks[0].getCollisionX() / paks[1].getCollisionX();
-						for (int anmCnt = 0; anmCnt < anms.length; anmCnt++) {
-							String anmDateTime = new SimpleDateFormat(Main.DT_FORMAT).format(new Date());
-							String anmName = "[" + anmDateTime + ": " + anmFiles[anmCnt].getName() + "]";
-							out += anmName + "\n";
-							anms[anmCnt] = new CharaAnm(anmFiles[anmCnt], bigEndian);
-							int[] boneIds = anms[anmCnt].getTranslationBoneIds();
-							for (int boneId: boneIds) {
-								if (boneId != 0) {
-									CharaAnm newAnm = new CharaAnm(anmFiles[anmCnt], bigEndian);
-									float[] srcBoneXyz = paks[0].getPositions(boneId), dstBoneXyz = paks[1].getPositions(boneId);
-									String anmResult = newAnm.writeNewCoordinates(coefficient, srcBoneXyz, dstBoneXyz, boneNames[boneId], boneId);
-									out += anmResult;
+						for (File sf: srcFiles) {
+							String dateTime = new SimpleDateFormat(Main.DT_FORMAT).format(new Date());
+							String name = "[" + dateTime + ": " + sf.getName() + "]";
+							out += name + "\n";
+							String nameLower = sf.getName().toLowerCase();
+							if (nameLower.endsWith(".anm")) {
+								CharaAnm anm = new CharaAnm(sf, bigEndian);
+								int[] boneIds = anm.getTranslationBoneIds();
+								for (int boneId: boneIds) {
+									if (boneId != 0) {
+										CharaAnm newAnm = new CharaAnm(sf, bigEndian);
+										float[] srcBoneXyz = paks[0].getPositions(boneId), dstBoneXyz = paks[1].getPositions(boneId);
+										String anmResult = newAnm.writeNewCoordinates(coefficient, srcBoneXyz, dstBoneXyz, boneNames[boneId], boneId);
+										out += anmResult;
+									}
 								}
+							}
+							else if (nameLower.endsWith(".cma")) {
+								CharaCma cma = new CharaCma(sf, bigEndian);
+								String cmaResult = cma.writeNewOrdinates(coefficient);
+								out += cmaResult;
 							}
 						}
 						fw.write(out);
@@ -302,7 +349,7 @@ public class Program {
 						long end = System.currentTimeMillis();
 						tk.beep();
 						String timeStr = String.format("%.3f", (end - start) / 1000.0);
-						String msg = anms.length + " ANM files adjusted in " + timeStr + " seconds! Check " + log + " for detailed information.";
+						String msg = srcFiles.length + " asset files adjusted in " + timeStr + " seconds! Check " + log + " for detailed information.";
 						JOptionPane.showMessageDialog(null, msg, WINDOW_TITLE, JOptionPane.INFORMATION_MESSAGE);
 					}
 				}

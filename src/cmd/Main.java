@@ -16,9 +16,9 @@ public class Main {
 		String[] boneNames = getBoneNames(boneCsv);
 		if (boneNames == null) {
 			System.out.println("ERROR: " + boneCsv + " does NOT point to the required bone names CSV!");
-			System.exit(4);
+			System.exit(1);
 		}
-		String helpText = "USAGE: java -jar animolto.jar \"path/to/tgt/mdl/pak\" \"path/to/src/mdl/pak\" \"path/to/folder/with/src/anms\"";
+		String helpText = "USAGE: java -jar animolto.jar \"path/to/tgt/mdl/pak\" \"path/to/src/mdl/pak\" \"path/to/folder/with/src/anms/or/cmas\"";
 		if (args.length > 0) {
 			if (args[0].equals("-h")) {
 				System.out.println(helpText);
@@ -27,8 +27,9 @@ public class Main {
 		}
 		if (args.length > 2) {
 			float[] colVals = { 1 , 1 };
-			File[] anmRefs = null, files = new File[3];
+			File[] srcRefs = null, files = new File[3];
 			CharaAnm[] anms = null;
+			CharaCma[] cmas = null;
 			CharaPak[] paks = new CharaPak[2];
 			long start = System.currentTimeMillis();
 			for (int fileCnt = 0; fileCnt < files.length; fileCnt++) {
@@ -41,7 +42,7 @@ public class Main {
 						paks[pakIdx] = new CharaPak(files[fileCnt]);
 						if (!paks[pakIdx].isValid()) {
 							System.out.println("ERROR: " + files[fileCnt] + " is NOT a valid DBZ BT2 or DBZ BT3 costume PAK file!");
-							System.exit(3);
+							System.exit(2);
 						}
 						colVals[pakIdx] = paks[pakIdx].getCollisionX();
 					}
@@ -49,20 +50,29 @@ public class Main {
 				else {
 					boolean bigEndian = false;
 					if (fileCnt == 2) bigEndian = paks[1].isInBigEndian();
-					anmRefs = files[fileCnt].listFiles((dir, name) -> name.toLowerCase().endsWith(".anm"));
-					if (anmRefs == null) {
-						System.out.println("ERROR: " + files[fileCnt] + " does NOT point to a directory with ANM files!");
-						System.exit(1);
-					}
-					anms = new CharaAnm[anmRefs.length];
-					for (int anmCnt = 0; anmCnt < anms.length; anmCnt++) {
-						anms[anmCnt] = new CharaAnm(anmRefs[anmCnt], bigEndian);
-						if (!anms[anmCnt].isValid()) {
-							System.out.println("ERROR: " + files[fileCnt] + " is NOT a valid ANM file!");
-							System.exit(2);
+					srcRefs = files[fileCnt].listFiles((dir, name) -> name.toLowerCase().endsWith(".anm"));
+					if (srcRefs.length != 0) {
+						anms = new CharaAnm[srcRefs.length];
+						for (int anmCnt = 0; anmCnt < anms.length; anmCnt++) {
+							anms[anmCnt] = new CharaAnm(srcRefs[anmCnt], bigEndian);
+							if (!anms[anmCnt].isValid()) srcRefs[anmCnt] = null;
+							else if (srcRefs[anmCnt].getName().toLowerCase().contains("enemy"))
+								srcRefs[anmCnt] = null;
 						}
-						else if (anmRefs[anmCnt].getName().toLowerCase().contains("enemy"))
-							anmRefs[anmCnt] = null;
+					}
+					else {
+						srcRefs = files[fileCnt].listFiles((dir, name) -> name.toLowerCase().endsWith(".cma"));
+						if (srcRefs.length != 0) {
+							cmas = new CharaCma[srcRefs.length];
+							for (int cmaCnt = 0; cmaCnt < cmas.length; cmaCnt++) {
+								cmas[cmaCnt] = new CharaCma(srcRefs[cmaCnt], bigEndian);
+								if (!cmas[cmaCnt].isValid()) srcRefs[cmaCnt] = null;
+							}
+						}
+						else {
+							System.out.println("ERROR: " + files[fileCnt] + " does NOT point to a directory with ANM or CMA files!");
+							System.exit(3);
+						}
 					}
 				}
 			}
@@ -73,21 +83,35 @@ public class Main {
 			String out = "";
 			boolean bigEndian = paks[1].isInBigEndian();
 			float coefficient = colVals[0] / colVals[1];
-			for (int anmCnt = 0; anmCnt < anms.length; anmCnt++) {
-				if (anmRefs[anmCnt] == null) continue;
-				String anmName = "[" + anmRefs[anmCnt].getName() + "]";
-				System.out.println(anmName);
-				anmName = anmName.replace("[", "[" + new SimpleDateFormat(DT_FORMAT).format(new Date()) + ": ");
-				out += anmName + "\n";
-				int[] boneIds = anms[anmCnt].getTranslationBoneIds();
-				for (int boneId: boneIds) {
-					if (boneId != 0) {
-						CharaAnm newAnm = new CharaAnm(anmRefs[anmCnt], bigEndian);
-						float[] srcBoneCoords = paks[0].getPositions(boneId), dstBoneCoords = paks[1].getPositions(boneId);
-						String anmResult = newAnm.writeNewCoordinates(coefficient, srcBoneCoords, dstBoneCoords, boneNames[boneId], boneId);
-						System.out.println(anmResult);
-						out += anmResult;
+			if (anms != null) {
+				for (int anmCnt = 0; anmCnt < anms.length; anmCnt++) {
+					if (srcRefs[anmCnt] == null) continue;
+					String anmName = "[" + srcRefs[anmCnt].getName() + "]";
+					System.out.println(anmName);
+					anmName = anmName.replace("[", "[" + new SimpleDateFormat(DT_FORMAT).format(new Date()) + ": ");
+					out += anmName + "\n";
+					int[] boneIds = anms[anmCnt].getTranslationBoneIds();
+					for (int boneId: boneIds) {
+						if (boneId != 0) {
+							CharaAnm newAnm = new CharaAnm(srcRefs[anmCnt], bigEndian);
+							float[] srcBoneCoords = paks[0].getPositions(boneId), dstBoneCoords = paks[1].getPositions(boneId);
+							String anmResult = newAnm.writeNewCoordinates(coefficient, srcBoneCoords, dstBoneCoords, boneNames[boneId], boneId);
+							System.out.println(anmResult);
+							out += anmResult;
+						}
 					}
+				}
+			}
+			else if (cmas != null) {
+				for (int cmaCnt = 0; cmaCnt < cmas.length; cmaCnt++) {
+					if (srcRefs[cmaCnt] == null) continue;
+					String cmaName = "[" + srcRefs[cmaCnt].getName() + "]";
+					System.out.println(cmaName);
+					cmaName = cmaName.replace("[", "[" + new SimpleDateFormat(DT_FORMAT).format(new Date()) + ": ");
+					out += cmaName + "\n";
+					String cmaResult = cmas[cmaCnt].writeNewOrdinates(coefficient);
+					System.out.println(cmaResult);
+					out += cmaResult;
 				}
 			}
 			fw.write(out);

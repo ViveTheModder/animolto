@@ -1,7 +1,7 @@
 # animolto
-Another modding tool (with CUI and GLI support) I made for my Italian friend. 
+Another modding tool (with CUI and GLI support) I made for my Italian friend [Bεzzo](https://bsky.app/profile/did:plc:4hh7ubpzmyq5raktz5sxc6ig). 
 
-Automatically **scales animations from Budokai Tenkaichi 2 & 3** (PS2 version only) in the same fashion as Ginyu's animations after using Body Change.
+Automatically **scales animations and cameras from Budokai Tenkaichi 2 & 3** in the same fashion as Ginyu's animations after using Body Change.
 
 Gone are the days of going in Blender and **manually resizing** one character model to match the other in order to get the **required scaling coefficient/multiplier**.
 
