@@ -16,6 +16,7 @@ public class CharaAnm {
 	}
 	
 	public boolean isValid() throws IOException {
+		if (anm.length() == 0) return false; 
 		anm.seek(0);
 		byte headerVal = anm.readByte();
 		byte[] offsetBytes = new byte[2];

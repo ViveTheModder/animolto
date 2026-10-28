@@ -3,6 +3,7 @@ package gui;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ActionEvent;
@@ -38,7 +39,7 @@ public class Program {
 	private static File currDir;
 	private static final String HTML_START = "<html><div style='font-size: 14px; font-style: italic;'>";
 	private static final String HTML_END = "</div></html>";
-	private static final String WINDOW_TITLE = "ANIMOLTO v3.0";
+	private static final String WINDOW_TITLE = "ANIMOLTO v3.1";
 	
 	public static void launch(String[] boneNames) {
 		Toolkit tk = Toolkit.getDefaultToolkit();
@@ -51,7 +52,7 @@ public class Program {
 		}
 	}
 	
-	private static File getFilefromChooser(String lblText, Toolkit tk, boolean isFolder) {
+	private static File getFilefromChooser(JFrame frame, String lblText, Toolkit tk, boolean isFolder) {
 		JFileChooser fc = new JFileChooser();
 		FileNameExtensionFilter filter = new FileNameExtensionFilter("Character Costume File (.pak)", "pak");
 		if (!isFolder) {
@@ -64,7 +65,7 @@ public class Program {
 		if (currDir != null) fc.setCurrentDirectory(currDir);
 		int result = -1;
 		while (result == -1) {
-			result = fc.showOpenDialog(null);
+			result = fc.showOpenDialog(frame);
 			if (result == JFileChooser.APPROVE_OPTION) {
 				File dir = fc.getSelectedFile();
 				currDir = dir;
@@ -148,6 +149,7 @@ public class Program {
 		Dimension minSize = new Dimension(768, 488);
 		Font btnFont = new Font("Tahoma", Font.BOLD, 28);
 		Font lblFont = new Font("Tahoma", Font.BOLD, 14);
+		Image iconImg = tk.getImage(ClassLoader.getSystemResource("img/icon.png"));
 		JButton applyBtn = new JButton("Adjust ANMs");
 		JButton[] openBtns = new JButton[lblTxt.length];
 		JFrame frame = new JFrame(WINDOW_TITLE);
@@ -214,7 +216,7 @@ public class Program {
 				@Override
 				public void actionPerformed(ActionEvent ae) {
 					boolean isFolder = lblTxt[index].contains("Folder");
-					dirs[index] = getFilefromChooser(lblTxt[index], tk, isFolder);
+					dirs[index] = getFilefromChooser(frame, lblTxt[index], tk, isFolder);
 					if (dirs[index] != null) {
 						fields[index].setBackground(Color.LIGHT_GRAY);
 						fields[index].setEditable(false);
@@ -366,6 +368,7 @@ public class Program {
 		frame.add(panel);
 		//Set frame properties
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setIconImage(iconImg);
 		frame.setMinimumSize(minSize);
 		frame.setLocationRelativeTo(null);
 		frame.setVisible(true);
